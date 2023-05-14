@@ -54,7 +54,8 @@ contract MpcManagerTest is Test, Helpers {
     event KeyGenerated(bytes32 indexed groupId, bytes publicKey);
     event SignRequestAdded(uint256 requestId, bytes indexed publicKey, bytes message);
     event SignRequestStarted(uint256 requestId, bytes indexed publicKey, bytes message);
-    event RequestStarted(bytes32 indexed requestId, uint256 participantIndices);
+    event RequestStarted(bytes32 requestHash, uint256 participantIndices);
+    event RequestFailed(bytes32 requestHash, bytes data);
     event StakeRequestAdded(
         uint256 requestId,
         bytes indexed publicKey,
@@ -167,6 +168,7 @@ contract MpcManagerTest is Test, Helpers {
 
         vm.prank(MPC_BIG_P12_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_BIG_P12_ID, MPC_GENERATED_PUBKEY);
+        assertEq(uint256(mpcManager.lastKeygenRequest()), uint256(MPC_BIG_GROUP_ID) + uint8(KeygenStatus.COMPLETED));
     }
 
     function testCreateGroupNotSorted() public {
@@ -276,6 +278,7 @@ contract MpcManagerTest is Test, Helpers {
 
         vm.prank(MPC_PLAYER_3_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_PARTICIPANT3_ID, MPC_GENERATED_PUBKEY);
+        assertEq(uint256(mpcManager.lastKeygenRequest()), uint256(MPC_GROUP_ID) + uint8(KeygenStatus.COMPLETED));
     }
 
     function testGetKey() public {
@@ -351,6 +354,35 @@ contract MpcManagerTest is Test, Helpers {
         vm.prank(MPC_PLAYER_3_ADDRESS);
         vm.expectRevert(MpcManager.QuorumAlreadyReached.selector);
         mpcManager.joinRequest(MPC_PARTICIPANT3_ID, bytes32(uint256(1)));
+    }
+
+    function testReportRequestFailed() public {
+        setupStakingRequest();
+
+        vm.prank(MPC_PLAYER_1_ADDRESS);
+        mpcManager.joinRequest(MPC_PARTICIPANT1_ID, bytes32(uint256(1)));
+
+        bytes memory data = hex"11";
+
+        // Cannot report failed before quorum reached
+        vm.prank(MPC_PLAYER_1_ADDRESS);
+        vm.expectRevert(MpcManager.QuorumNotReached.selector);
+        mpcManager.reportRequestFailed(MPC_PARTICIPANT1_ID, bytes32(uint256(1)), data);
+
+        // Quorum reached
+        vm.prank(MPC_PLAYER_2_ADDRESS);
+        mpcManager.joinRequest(MPC_PARTICIPANT2_ID, bytes32(uint256(1)));
+
+        // Cannot report failed if not a member of quorum
+        vm.prank(MPC_PLAYER_3_ADDRESS);
+        vm.expectRevert(MpcManager.NotInQuorum.selector);
+        mpcManager.reportRequestFailed(MPC_PARTICIPANT3_ID, bytes32(uint256(1)), data);
+
+        // Can report failed after quorum reached
+        vm.expectEmit(false, false, true, true);
+        emit RequestFailed(bytes32(uint256(1)), data);
+        vm.prank(MPC_PLAYER_1_ADDRESS);
+        mpcManager.reportRequestFailed(MPC_PARTICIPANT1_ID, bytes32(uint256(1)), data);
     }
 
     // -------------------------------------------------------------------------

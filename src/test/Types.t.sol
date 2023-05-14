@@ -4,6 +4,7 @@ pragma solidity 0.8.10;
 import {Test} from "forge-std/Test.sol";
 import "./helpers.sol";
 import "../Types.sol";
+import "forge-std/console.sol";
 
 contract ValidatorHelpersTest is Test, Helpers {
     function setUp() public {}
@@ -98,33 +99,48 @@ contract IdHelpersTest is Test, Helpers {
     }
 }
 
-contract ConfirmationHelpersTest is Test, Helpers {
-    bytes32 constant INDICES = hex"73553de49378e407b656cae022df20a11de995d35221910115cfc0993c483700";
-    uint8 constant CONFIRMATION_COUNT = 115;
-    bytes32 constant CONFIRMATION = hex"73553de49378e407b656cae022df20a11de995d35221910115cfc0993c483773";
+contract RequestRecordHelpersTest is Test, Helpers {
+    using RequestRecordHelpers for uint256;
+    bytes32 constant INDICES = bytes32(uint256(0x0115cfc0993c483700));
+    uint8 constant CONFIRMATION_COUNT = 27;
+    bytes32 constant RECORD = bytes32(uint256(0x0115cfc0993c48371b));
 
-    function testMakeConfirmation() public {
-        uint256 confirmation = ConfirmationHelpers.makeConfirmation(uint256(INDICES), CONFIRMATION_COUNT);
-        assertEq(confirmation, uint256(CONFIRMATION));
+    function testMakeRecord() public {
+        uint256 record = RequestRecordHelpers.makeRecord(uint256(INDICES), CONFIRMATION_COUNT);
+        assertEq(record, uint256(RECORD));
     }
 
     function testGetIndices() public {
-        uint256 indices = ConfirmationHelpers.getIndices(uint256(CONFIRMATION));
+        uint256 indices = RequestRecordHelpers.getIndices(uint256(RECORD));
         assertEq(indices, uint256(INDICES));
     }
 
     function testGetConfirmationCount() public {
-        uint8 count = ConfirmationHelpers.getConfirmationCount(uint256(CONFIRMATION));
+        uint8 count = RequestRecordHelpers.getConfirmationCount(uint256(RECORD));
         assertEq(count, CONFIRMATION_COUNT);
     }
 
     function testConfirm() public {
-        uint256 confirm = ConfirmationHelpers.confirm(1);
+        uint256 confirm = RequestRecordHelpers.confirm(1);
         assertEq(confirm, uint256(INDEX_1));
-        confirm = ConfirmationHelpers.confirm(2);
+        confirm = RequestRecordHelpers.confirm(2);
         assertEq(confirm, uint256(INDEX_2));
-        confirm = ConfirmationHelpers.confirm(3);
+        confirm = RequestRecordHelpers.confirm(3);
         assertEq(confirm, uint256(INDEX_3));
+    }
+
+    function testQuorumReached() public {
+        uint256 record = uint256(RECORD);
+        assertEq(record.isQuorumReached(), false);
+        record = record.setQuorumReached();
+        assertEq(record.isQuorumReached(), true);
+    }
+
+    function testSetFailed() public {
+        uint256 record = uint256(RECORD);
+        assertEq(record.isFailed(), false);
+        record = record.setFailed();
+        assertEq(record.isFailed(), true);
     }
 }
 

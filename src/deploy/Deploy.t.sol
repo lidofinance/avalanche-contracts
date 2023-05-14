@@ -15,14 +15,14 @@ import "../AvaLido.sol";
 contract Deploy is Script, Helpers {
     // Role details
     // TODO: This should be divided into roles rather than used for everything
-    address admin = 0x27F957c465214d9C3AF0bf10e52e68bd839c66d4;
-    address pauseAdmin = 0x27F957c465214d9C3AF0bf10e52e68bd839c66d4;
+    address proxyAdmin = 0x999a1D7349249B2a93B512f4ffcBF03DB760d15B; // N.B. The proxy admin MUST be different from all other admin addresses.
+    address pauseAdmin = 0x000f54f73696298dEDffB4c37f8B6564F486EAA3;
     address oracleAdmin = 0x8e7D0f159e992cfC0ee28D55C600106482a818Ea;
     address mpcAdmin = 0x8e7D0f159e992cfC0ee28D55C600106482a818Ea;
 
     // Address constants
-    address lidoFeeAddress = 0x2000000000000000000000000000000000000001;
-    address authorFeeAddress = 0x2000000000000000000000000000000000000002;
+    address lidoFeeAddress = 0x11144C7f850415Ac4Fb446A6fE76b1DbD533FC55;
+    address authorFeeAddress = 0x222D9E71E9f66e0B7cB2Ba837Be1B9B87052e612;
 
     // Constants
     address[] oracleAllowlist = [
@@ -40,29 +40,30 @@ contract Deploy is Script, Helpers {
 
         // MPC manager
         MpcManager _mpcManager = new MpcManager();
-        MpcManager mpcManager = MpcManager(address(proxyWrapped(address(_mpcManager), admin)));
+        MpcManager mpcManager = MpcManager(address(proxyWrapped(address(_mpcManager), proxyAdmin)));
 
         // Oracle manager
         OracleManager _oracleManager = new OracleManager();
-        OracleManager oracleManager = OracleManager(address(proxyWrapped(address(_oracleManager), admin)));
+        OracleManager oracleManager = OracleManager(address(proxyWrapped(address(_oracleManager), proxyAdmin)));
         oracleManager.initialize(oracleAdmin, oracleAllowlist);
 
         // Oracle
-        uint256 epochDuration = 100;
+        uint256 epochDuration = 150;
         Oracle _oracle = new Oracle();
-        Oracle oracle = Oracle(address(proxyWrapped(address(_oracle), admin)));
+        Oracle oracle = Oracle(address(proxyWrapped(address(_oracle), proxyAdmin)));
         oracle.initialize(oracleAdmin, address(oracleManager), epochDuration);
+        oracleManager.setOracleAddress(address(oracle));
 
         // Validator selector
         ValidatorSelector _validatorSelector = new ValidatorSelector();
         ValidatorSelector validatorSelector = ValidatorSelector(
-            address(proxyWrapped(address(_validatorSelector), admin))
+            address(proxyWrapped(address(_validatorSelector), proxyAdmin))
         );
         validatorSelector.initialize(address(oracle));
 
         // AvaLido
         AvaLido _lido = new AvaLido();
-        AvaLido lido = AvaLido(address(proxyWrapped(address(_lido), admin)));
+        AvaLido lido = AvaLido(address(proxyWrapped(address(_lido), proxyAdmin)));
         lido.initialize(lidoFeeAddress, authorFeeAddress, address(validatorSelector), address(mpcManager));
 
         // // Treasuries

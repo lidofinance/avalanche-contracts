@@ -172,6 +172,10 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
             countOfSuitableValidators++;
         }
 
+        if (countOfSuitableValidators == 0) {
+            return new Validator[](0);
+        }
+
         // 3. Compress the array into just suitable validators
         Validator[] memory result = new Validator[](countOfSuitableValidators);
         uint256 resultIndexCount = 0;

@@ -25,7 +25,7 @@ type Validator is uint24;
 
 library ValidatorHelpers {
     function getNodeIndex(Validator data) public pure returns (uint256) {
-        // Take 12 bits from the middle which represents our index.
+        // Take the first 14 bits which represents our index.
         uint24 value = Validator.unwrap(data) & 16776192; // 111111111111110000000000
         // Shift right 10 places to align
         uint24 shifted = value >> 10;
@@ -93,27 +93,48 @@ library IdHelpers {
     }
 }
 
-// The first 31 bytes (248 bits) to represent the confirmation of max. 248 members,
+// The first byte represent the status of the request.
+// The next 22 bytes are currently not used.
+// The next 8 bytes bytes (64 bits) are used to represent the confirmation of max. 64 members,
 // i.e. when the first bit set to 1, it means participant 1 has confirmed.
-// The last byte records the number participants that have confirmed
-library ConfirmationHelpers {
-    uint256 constant INIT_BIT = 0x8000000000000000000000000000000000000000000000000000000000000000;
+// The last byte records the number participants that have confirmed.
+library RequestRecordHelpers {
+    uint256 constant INIT_INDEX_BIT = 0x800000000000000000;
+    bytes32 constant INDICES_MASK = bytes32(uint256(0xffffffffffffffff00));
+    uint256 constant QUORUM_REACHED = 0x0100000000000000000000000000000000000000000000000000000000000000;
+    uint256 constant FAILED = 0x0200000000000000000000000000000000000000000000000000000000000000;
 
-    function makeConfirmation(uint256 indices, uint8 confirmationCount) public pure returns (uint256) {
+    function makeRecord(uint256 indices, uint8 confirmationCount) public pure returns (uint256) {
         assert(indices & uint256(LAST_BYTE_MASK) == 0);
         return indices | confirmationCount;
     }
 
-    function getIndices(uint256 confirmation) public pure returns (uint256) {
-        return confirmation & uint256(INIT_31_BYTE_MASK);
+    function getIndices(uint256 record) public pure returns (uint256) {
+        return record & uint256(INDICES_MASK);
     }
 
-    function getConfirmationCount(uint256 confirmation) public pure returns (uint8) {
-        return uint8(confirmation & uint256(LAST_BYTE_MASK));
+    function getConfirmationCount(uint256 record) public pure returns (uint8) {
+        return uint8(record & uint256(LAST_BYTE_MASK));
     }
 
     function confirm(uint8 myIndex) public pure returns (uint256) {
-        return INIT_BIT >> (myIndex - 1); // Set bit representing my confirm.
+        return INIT_INDEX_BIT >> (myIndex - 1); // Set bit representing my confirm.
+    }
+
+    function setQuorumReached(uint256 record) public pure returns (uint256) {
+        return record | QUORUM_REACHED;
+    }
+
+    function setFailed(uint256 record) public pure returns (uint256) {
+        return record | FAILED;
+    }
+
+    function isQuorumReached(uint256 record) public pure returns (bool) {
+        return (record & QUORUM_REACHED) > 0;
+    }
+
+    function isFailed(uint256 record) public pure returns (bool) {
+        return (record & FAILED) > 0;
     }
 }
 

@@ -249,7 +249,7 @@ contract OracleManagerTest is Test, Helpers {
 
     function testUnauthorizedAddOracleMember() public {
         vm.expectRevert(
-            "AccessControl: account 0x62d69f6867a0a084c6d313943dc22023bc263691 is missing role 0x34a4d1a1986ad857ac4bae77830874ee3b64b359bb6bdc3f73a14cff3bb32bf6"
+            "AccessControl: account 0x34a1d3fff3958843c43ad80f30b94c510645c316 is missing role 0x34a4d1a1986ad857ac4bae77830874ee3b64b359bb6bdc3f73a14cff3bb32bf6"
         );
         oracleManager.addOracleMember(anotherAddressForTesting);
     }
@@ -275,7 +275,7 @@ contract OracleManagerTest is Test, Helpers {
 
     function testUnauthorizedRemoveOracleMember() public {
         vm.expectRevert(
-            "AccessControl: account 0x62d69f6867a0a084c6d313943dc22023bc263691 is missing role 0x34a4d1a1986ad857ac4bae77830874ee3b64b359bb6bdc3f73a14cff3bb32bf6"
+            "AccessControl: account 0x34a1d3fff3958843c43ad80f30b94c510645c316 is missing role 0x34a4d1a1986ad857ac4bae77830874ee3b64b359bb6bdc3f73a14cff3bb32bf6"
         );
         oracleManager.removeOracleMember(anotherAddressForTesting);
     }
@@ -337,7 +337,7 @@ contract OracleManagerTest is Test, Helpers {
 
     function testUnauthorizedSetOracleAddress() public {
         vm.expectRevert(
-            "AccessControl: account 0x62d69f6867a0a084c6d313943dc22023bc263691 is missing role 0x34a4d1a1986ad857ac4bae77830874ee3b64b359bb6bdc3f73a14cff3bb32bf6"
+            "AccessControl: account 0x34a1d3fff3958843c43ad80f30b94c510645c316 is missing role 0x34a4d1a1986ad857ac4bae77830874ee3b64b359bb6bdc3f73a14cff3bb32bf6"
         );
         oracleManager.setOracleAddress(anotherAddressForTesting);
     }

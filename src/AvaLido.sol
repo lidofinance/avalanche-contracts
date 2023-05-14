@@ -286,24 +286,21 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
         // Track buffered balance.
         _bufferedBalance -= amountAVAX;
 
-        // Transfer the AVAX to the user
-        (bool success, ) = msg.sender.call{value: amountAVAX}("");
-        if (!success) revert TransferFailed();
-
         // Emit claim event.
-        if (isFullyClaimed(request)) {
-            // Final claim, remove this request.
-            // Note that we just delete for gas refunds, this doesn't alter the indicies of the other requests.
+        bool fullyClaimed = isFullyClaimed(request);
+        if (fullyClaimed) {
+            // Final claim, remove this request so that it can't be claimed again.
+            // Note, this doesn't alter the indicies of the other requests.
             unstakeRequestCount[msg.sender]--;
             delete unstakeRequests[requestIndex];
-
-            emit ClaimEvent(msg.sender, amountAVAX, true, requestIndex);
-
-            return;
         }
 
         // Emit an event which describes the partial claim.
-        emit ClaimEvent(msg.sender, amountAVAX, false, requestIndex);
+        emit ClaimEvent(msg.sender, amountAVAX, fullyClaimed, requestIndex);
+
+        // Transfer the AVAX to the user
+        (bool success, ) = msg.sender.call{value: amountAVAX}("");
+        if (!success) revert TransferFailed();
     }
 
     /**
@@ -406,22 +403,28 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
      * Any remaining funds after all requests are filled are re-staked.
      */
     function claimUnstakedPrincipals() external {
-        uint256 val = address(principalTreasury).balance;
-        if (val == 0) return;
-        if (amountStakedAVAX == 0 || amountStakedAVAX < val) revert InvalidStakeAmount();
+        if (amountStakedAVAX == 0) revert InvalidStakeAmount();
+
+        uint256 principalBalance = address(principalTreasury).balance;
+        if (principalBalance == 0) return;
+
+        // Claim up to a maximum of the amount staked.
+        // This defends against the treasury balance being larger than the amount staked
+        // which could happen if people send money to the treasury directly.
+        uint256 amountToClaim = Math.min(principalBalance, amountStakedAVAX);
 
         // Track buffered balance and claim.
-        _bufferedBalance += val;
-        principalTreasury.claim(val);
+        _bufferedBalance += amountToClaim;
+        principalTreasury.claim(amountToClaim);
 
         // We received this from an unstake, so remove from our count.
         // Anything restaked will be counted again on the way out.
         // Note: This avoids double counting, as the total count includes AVAX held by
         // the contract.
-        amountStakedAVAX -= val;
+        amountStakedAVAX -= amountToClaim;
 
         // Fill unstake requests and allocate excess for restaking.
-        fillUnstakeRequests(val);
+        fillUnstakeRequests(amountToClaim);
     }
 
     /**
@@ -524,21 +527,19 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
                 return (false, remaining);
             }
 
-            if (unstakeRequests[i].amountFilled < unstakeRequests[i].amountRequested) {
-                uint256 amountRequired = unstakeRequests[i].amountRequested - unstakeRequests[i].amountFilled;
+            uint256 amountRequired = unstakeRequests[i].amountRequested - unstakeRequests[i].amountFilled;
 
-                uint256 amountToFill = Math.min(amountRequired, remaining);
-                amountFilled += amountToFill;
+            uint256 amountToFill = Math.min(amountRequired, remaining);
+            amountFilled += amountToFill;
 
-                unstakeRequests[i].amountFilled += amountToFill;
+            unstakeRequests[i].amountFilled += amountToFill;
 
-                // We filled the request entirely, so move the head pointer on
-                if (isFilled(unstakeRequests[i])) {
-                    unfilledHead = i + 1;
-                    emit RequestFullyFilledEvent(unstakeRequests[i].amountRequested, i);
-                } else {
-                    emit RequestPartiallyFilledEvent(amountToFill, i);
-                }
+            // We filled the request entirely, so move the head pointer on
+            if (isFilled(unstakeRequests[i])) {
+                unfilledHead = i + 1;
+                emit RequestFullyFilledEvent(unstakeRequests[i].amountRequested, i);
+            } else {
+                emit RequestPartiallyFilledEvent(amountToFill, i);
             }
 
             remaining = inputAmount - amountFilled;
@@ -586,11 +587,6 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
         );
     }
 
-    /**
-     * @dev The two treasury addresses should be set in intialize. Separate them due to
-     * stack too deep issue. Need to check if there's a better way to handle, e.g. use a
-     * struct to hold all the arguments of initialize call?
-     */
     function setPrincipalTreasuryAddress(address _address) external onlyRole(ROLE_TREASURY_MANAGER) {
         if (_address == address(0)) revert InvalidAddress();
 
@@ -599,11 +595,6 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
         emit ProtocolConfigChanged("setPrincipalTreasuryAddress", "setPrincipalTreasuryAddress", abi.encode(_address));
     }
 
-    /**
-     * @dev The two treasury addresses should be set in intialize. Separate them due to
-     * stack too deep issue. Need to check if there's a better way to handle, e.g. use a
-     * struct to hold all the arguments of initialize call?
-     */
     function setRewardTreasuryAddress(address _address) external onlyRole(ROLE_TREASURY_MANAGER) {
         if (_address == address(0)) revert InvalidAddress();
 
